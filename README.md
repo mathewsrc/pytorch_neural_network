@@ -34,3 +34,28 @@ Kullback-Leibler (KL) divergence loss: KL divergence is used in generative model
 Dice loss: Dice loss is used in semantic segmentation problems, where the goal is to assign a class label to each pixel in an image. It measures the overlap between the predicted and target segmentations.
 
 Jaccard loss: Jaccard loss is similar to Dice loss and is also used in semantic segmentation problems. It measures the overlap between the predicted and target segmentations.
+
+
+## Tranfer Learning
+
+Transfer learning is a technique in deep learning where a pre-trained model on a large dataset is used as a starting point for a model on a different but related task. Instead of training the model from scratch on the smaller dataset, the pre-trained weights are used as an initialization and only the last layer(s) are fine-tuned to adapt to the new task. This allows the model to leverage the knowledge gained from the pre-training and reduces the amount of data and computational resources required to train the model effectively on the new task.
+
+### Advantages of Transfer Learning:
+
+Reduced Training Time: Transfer learning allows you to leverage the knowledge and feature extraction capabilities of a pre-trained model, reducing the training time required for your own task.
+
+Better Accuracy: Transfer learning often results in higher accuracy compared to training a model from scratch, especially when the dataset is small or limited.
+
+Requires Less Data: Since a pre-trained model has already learned from a large dataset, it requires less data to be fine-tuned for a new task.
+
+Better Feature Representations: Pre-trained models have been trained on a large diverse dataset, giving them the ability to learn robust feature representations, which can be leveraged in other tasks.
+
+### Disadvantages of Transfer Learning:
+
+Limited Transferability: The effectiveness of transfer learning depends on the similarity between the pre-trained model's task and the new task. If the tasks are very different, transfer learning may not be as effective.
+
+Unclear Benefits: It may not always be clear whether using transfer learning is the best approach, or whether training a model from scratch is better. This can result in wasted time and resources.
+
+Potential Overfitting: Overfitting can occur when the pre-trained model is fine-tuned on a small dataset, leading to a decrease in performance on new data.
+
+Unfamiliarity with Pre-trained Model: Understanding the pre-trained model's architecture, learning process, and strengths/weaknesses can be time-consuming and may lead to misapplication of the model.
