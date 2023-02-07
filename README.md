@@ -1,2 +1,2 @@
-# pytorch_neural_network_mnist
-Build a neural network with Pytorch 
+# pytorch_neural_network
+Build different types of neural network with Pytorch 
