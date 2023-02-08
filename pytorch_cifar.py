@@ -68,46 +68,46 @@ def test(model, test_loader):
 
 
 def main():
-    # Training settings
-    parser = argparse.ArgumentParser(description="PyTorch MNIST Example")
+    parser = argparse.ArgumentParser()
     parser.add_argument(
-         "-I-batch-size",
-         type=int,
-         default=64,
-         metavar="N",
-        help="input batch size for training (default: 64)",
-     )
+        "--batch-size",
+        type=int,
+        default=64,
+        metavar="N",
+        help="input batch size for training (default: 64)"
+    )
     parser.add_argument(
-         "--test-batch-size",
-         type=int,
-         default=1000,
-         metavar="N",
-        help="input batch size for testing (default: 1000)",
-     )
+        "--test-batch-size",
+        type=int,
+        default=1000,
+        metavar="N",
+        help="input batch size for testing (default: 1000)"
+    )
     parser.add_argument(
-         "--epochs",
-         type=int,
-         default=14,
-         metavar="N",
-        help="number of epochs to train (default: 14)",)
-    
-    parser.add_argument("--lr", type=float, default=1.0, metavar="LR", help="learning rate (default: 1.0)")
+        "--epochs",
+        type=int,
+        default=14,
+        metavar="N",
+        help="number of epochs to train (default: 14)"
+    )
+    parser.add_argument(
+        "--lr", type=float, default=1.0, metavar="LR", help="learning rate (default: 1.0)"
+    )
     
     args = parser.parse_args()
 
     train_kwargs = {"batch_size": args.batch_size}
     test_kwargs = {"batch_size": args.test_batch_size}
-
-    transform = transforms.Compose([
+   
+	transform = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize((0.5,0.5,0.5), (0.5, 0.5, 0.5))
     ])
     
-    # TODO: Add the CIFAR10 dataset and create your data loaders
     dataset1 = datasets.MNIST("../data", train=True, download=True, transform=transform)
     dataset2 = datasets.MNIST("../data", train=False, download=True, transform=transform)
-    train_loader = DataLoader(dataset1, **train_kwargs)
-    test_loader = DataLoader(dataset2, **test_kwargs)
+    train_loader = DataLoader(dataset1, train_kwargs**)
+    test_loader = DataLoader(dataset2, test_kwargs**)
 
     model = Net()
 

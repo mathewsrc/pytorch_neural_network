@@ -6,8 +6,7 @@ hyperparameters = {"epochs": "2", "batch-size": "64", "test-batch-size": "100", 
 
 # Create a Pytorch estimator
 estimator = Pytorch(
-    entry_point="scripts/pytorch_mnist.py",
-    base_job_name="pytorch_sagemaker",
+    entry_point="pytorch_cifar.py",
     role=get_execution_role(),
     instance_count=1,
     instance_type="ml.m5.large",
