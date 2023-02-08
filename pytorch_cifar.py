@@ -1,121 +1,126 @@
 import argparse
+import time
+
+import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
-from torchvision import datasets, transforms
-from torch.utils.data import DataLoader
+import torchvision
+import torchvision.models as models
+import torchvision.transforms as transforms
 
-class Net(nn.Module):
-    def __init__(self):
-        self.conv1 = nn.Conv2d(1, 32, 3, 1)
-        self.conv2 = nn.Conv2d(32, 64, 3, 1)
-        self.dropout1 = nn.Dropout(0.25)
-        self.dropout2 = nn.D.Dropout(0.5)
-        self.fc1 = nn.Linear(9216, 128)
-        self.fc2 = nn.Linear(128, 10)
-        
-    def forward(self, x):
-        x=self.convl(x)
-        x=F.relu(x)
-        x=self.conv2(x)
-        x=F.relu(x)
-        x=F.max_pool2d(x, 2)
-        x=self.dropout1(x)
-        x=torch.flatten(x, 1)
-        x=self.fc1(x)
-        x=F.relu(x)
-        x=self.dropout2(x)
-        x=self.fc2(x)
-        output=F.log_softmax(x, dim=1)
-        
-def train(model, train_loader, optimizer, epoch):
-    for batch_idx, (data, target) in enumerate(train_loader):
-        optimizer.zero_grad()
-        output = model(data)
-        loss = F.nll_loss(output, target)
-        loss.backward()
-        optimizer.step()
-        if batch_idx % 100 == 0:
-            print(
-                "Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}".format(
-                    epoch,
-                    batch_idx * len(data),
-                    len(train_loader.dataset),
-                    100.0 * batch_idx / len(train_loader),
-                    loss.item(),
-                )
-            )
+from smdebug import modes
+from smdebug.profiler.utils import str2bool
+from smdebug.pytorch import get_hook
 
-
-def test(model, test_loader):
-    test_loss = 0
-    correct = 0
-    with torch.no_grad():
-        for data, target in test_loader:
-            output = model(data)
-            test_loss += F.nll_loss(output, target, reduction="sum").item()  # sum up batch loss
-            pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
-            correct += pred.eq(target.view_as(pred)).sum().item()
-
-    test_loss /= len(test_loader.dataset)
-
-    print(
-        "\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n".format(
-            test_loss, correct, len(test_loader.dataset), 100.0 * correct / len(test_loader.dataset)
-        )
+def train(args, net, device):
+    hook = get_hook(create_if_not_exists=True)
+    batch_size = args.batch_size
+    epoch = args.epoch
+    transform_train = transforms.Compose(
+        [
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+        ]
     )
+
+    transform_valid = transforms.Compose(
+        [
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+        ]
+    )
+
+    trainset = torchvision.datasets.CIFAR10(
+        root="./data", train=True, download=True, transform=transform_train
+    )
+    trainloader = torch.utils.data.DataLoader(
+        trainset,
+        batch_size=batch_size,
+        shuffle=True
+    )
+
+    validset = torchvision.datasets.CIFAR10(
+        root="./data", train=False, download=True, transform=transform_valid
+    )
+    validloader = torch.utils.data.DataLoader(
+        validset,
+        batch_size=batch_size,
+        shuffle=False
+    )
+
+    loss_optim = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(net.parameters(), lr=0.001)
+
+    epoch_times = []
+
+    if hook:
+        hook.register_loss(loss_optim)
+
+    for i in range(epoch):
+        print("START TRAINING")
+        if hook:
+            hook.set_mode(modes.TRAIN)
+        start = time.time()
+        net.train()
+        train_loss = 0
+        for _, (inputs, targets) in enumerate(trainloader):
+            inputs, targets = inputs.to(device), targets.to(device)
+            optimizer.zero_grad()
+            outputs = net(inputs)
+            loss = loss_optim(outputs, targets)
+            loss.backward()
+            optimizer.step()
+            train_loss += loss.item()
+
+        print("START VALIDATING")
+        if hook:
+            hook.set_mode(modes.EVAL)
+        net.eval()
+        val_loss = 0
+        with torch.no_grad():
+            for _, (inputs, targets) in enumerate(validloader):
+                inputs, targets = inputs.to(device), targets.to(device)
+                outputs = net(inputs)
+                loss = loss_optim(outputs, targets)
+                val_loss += loss.item()
+
+        epoch_time = time.time() - start
+        epoch_times.append(epoch_time)
+        print(
+            "Epoch %d: train loss %.3f, val loss %.3f, in %.1f sec"
+            % (i, train_loss, val_loss, epoch_time)
+        )
+
+    # calculate training time after all epoch
+    p50 = np.percentile(epoch_times, 50)
+    return p50
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--batch-size",
-        type=int,
-        default=64,
-        metavar="N",
-        help="input batch size for training (default: 64)"
-    )
-    parser.add_argument(
-        "--test-batch-size",
-        type=int,
-        default=1000,
-        metavar="N",
-        help="input batch size for testing (default: 1000)"
-    )
-    parser.add_argument(
-        "--epochs",
-        type=int,
-        default=14,
-        metavar="N",
-        help="number of epochs to train (default: 14)"
-    )
-    parser.add_argument(
-        "--lr", type=float, default=1.0, metavar="LR", help="learning rate (default: 1.0)"
-    )
-    
-    args = parser.parse_args()
+    parser.add_argument("--batch_size", type=int, default=128)
+    parser.add_argument("--epoch", type=int, default=1)
+    parser.add_argument("--gpu", type=str2bool, default=True)
+    parser.add_argument("--model", type=str, default="resnet50")
 
-    train_kwargs = {"batch_size": args.batch_size}
-    test_kwargs = {"batch_size": args.test_batch_size}
-   
-	transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize((0.5,0.5,0.5), (0.5, 0.5, 0.5))
-    ])
-    
-    dataset1 = datasets.MNIST("../data", train=True, download=True, transform=transform)
-    dataset2 = datasets.MNIST("../data", train=False, download=True, transform=transform)
-    train_loader = DataLoader(dataset1, train_kwargs**)
-    test_loader = DataLoader(dataset2, test_kwargs**)
+    opt = parser.parse_args()
 
-    model = Net()
+    for key, value in vars(opt).items():
+        print(f"{key}:{value}")
+    # create model
+    net = models.__dict__[opt.model](pretrained=True)
+    if opt.gpu == 1:
+        device = torch.device("cuda")
+    else:
+        device = torch.device("cpu")
+    net.to(device)
 
-    optimizer = optim.Adam(model.parameters(), lr=0.0001)
+    # Start the training.
+    median_time = train(opt, net, device)
+    print("Median training time per Epoch=%.1f sec" % median_time)
 
-    for epoch in range(1, args.epochs + 1):
-        train(model, train_loader, optimizer, epoch)
-        test(model, test_loader)
 
 if __name__ == "__main__":
     main()
